@@ -1,0 +1,43 @@
+# Обращение к чувствительному документу из скриптового движка.
+# Два независимых источника (одного достаточно):
+#   a) PowerShell 4103 (EventID = "WinPowershellScriptExec"): путь документа в ParameterBinding;
+#   b) 4656/4663 (EventID = "WinHandleObjectRequested"/"WinObjectAccessAttempt") на документ
+#      процессом, которого нет в списке офисных приложений.
+# В атаке сработал бы a): Get-ChildItem/Get-Item ...\Advanced_Research_Report.docx (13:20:02).
+# Список документов лучше держать в табличном списке; здесь - пути из задания и префикс IPO_.
+
+event Doc_In_PowerShell:
+    key:
+        Computer
+    filter {
+        EventID == "WinPowershellScriptExec"
+        and regex(lower(Payload), "advanced_research_report|incident_report\\.pdf|expert_services_department|product_fails|\\\\ipo_[^\\\\]*\"", 0) != null
+    }
+
+event Doc_Handle_Not_Office:
+    key:
+        Computer
+    filter {
+        in_list(["WinHandleObjectRequested", "WinObjectAccessAttempt"], EventID)
+        and ObjectType == "File"
+        and regex(lower(ObjectName), "advanced_research_report|incident_report\\.pdf|expert_services_department|product_fails|\\\\ipo_[^\\\\]*$", 0) != null
+        and not in_list(["explorer.exe", "winword.exe", "excel.exe", "powerpnt.exe", "acrord32.exe", "acrobat.exe", "searchprotocolhost.exe", "msmpeng.exe"],
+                        lower(basename(ProcessName)))
+    }
+
+rule Sensitive_Document_Access_By_Script: Doc_In_PowerShell or Doc_Handle_Not_Office
+    on Doc_In_PowerShell {
+        $host = Computer
+        $object = Payload
+    }
+    on Doc_Handle_Not_Office {
+        $host = Computer
+        $user = SubjectUserName
+        $process = ProcessName
+        $object = ObjectName
+    }
+emit {
+    $correlation_type = "incident"
+    $importance = "high"
+    # MITRE: T1005, T1083 (+ T1041 при наличии соединения того же процесса)
+}

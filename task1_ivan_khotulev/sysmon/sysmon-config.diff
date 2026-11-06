@@ -1,0 +1,11 @@
+# Правки относительно базового конфига SwiftOnSecurity (Compare-Object):
+
+# 1. FileCreate: добавлено логирование создания архивов .zip
+#    (виден этап упаковки собранной почты, напр. %TEMP%\mail_dump.zip)
+<FileCreate onmatch="include">
+  <TargetFilename condition="end with">.zip</TargetFilename>
+</FileCreate>
+
+# 2. ProcessCreate: убрано исключение powershell.exe
+#    (базовый конфиг SwiftOnSecurity исключает powershell.exe из EID 1;
+#     для этой техники запуск powershell важен, поэтому исключение снято)

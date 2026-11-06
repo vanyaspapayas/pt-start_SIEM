@@ -1,0 +1,4 @@
+Description: 'Чтение файлов локального почтового хранилища Thunderbird посторонним процессом'
+EventDescriptions:
+    - LocalizationId: 'corrname_Local_Email_Collection_Thunderbird'
+      EventDescription: 'Пользователь {subject.account.domain}\{subject.account.name} прочитал файл почтового хранилища "{object.fullpath}" процессом {subject.process.fullpath} на узле {event_src.host}'

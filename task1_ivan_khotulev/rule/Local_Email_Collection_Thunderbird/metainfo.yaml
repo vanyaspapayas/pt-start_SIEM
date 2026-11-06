@@ -1,0 +1,31 @@
+# ObjectId и даты сгенерирует расширение при создании правила
+# ("Новое правило корреляции"). Поля ниже заполните через редактор "Метаданные".
+ContentAutoName: Local_Email_Collection_Thunderbird
+ExpertContext:
+    KnowledgeHolders:
+        - Ivan Khotulev
+    Usecases:
+        - Adversaries may collect local email data (mbox / msf files of Thunderbird) by reading or copying the mail store with a non-mail-client process.
+    Falsepositives:
+        - Backup and sync agents that are not whitelisted (Veeam, Acronis, corporate backup)
+        - Third-party antivirus / EDR scanners
+        - Archivers (7-Zip, WinRAR) when the user archives the profile manually
+        - Explorer copy when the user migrates the profile manually
+        - Thunderbird installed into a non-default directory (portable)
+    Improvements:
+        - Move the process whitelist to a tabular list
+        - Add Outlook stores (*.pst, *.ost, %LOCALAPPDATA%\Microsoft\Olk)
+        - Join with Sysmon EID 1 / 4688 by ProcessId to get the command line and parent process
+        - Separate high-severity subrule for mass reading (N different files in 1 minute)
+    DataSources:
+        - Provider: Microsoft-Windows-Security-Auditing
+          EventID:
+              - 4663
+ContentRelations:
+    Implements:
+        ATTACK:
+            collection:
+                - T1114.001
+EventDescriptions:
+    - Criteria: correlation_name = "Local_Email_Collection_Thunderbird"
+      LocalizationId: corrname_Local_Email_Collection_Thunderbird

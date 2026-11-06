@@ -1,0 +1,33 @@
+# Скрытый запуск PowerShell с закодированной командой из командного файла.
+# Источник: Sysmon 1 (в выгрузке EventID = "SysmonProcessCreate"), поля сырого события из EventData.
+# В атаке: cmd.exe /c Downloads\launcher.bat -> powershell.exe -nop -ep bypass -w 1 -enc ...
+# Самый ранний надёжный признак атаки (13:14:42.756).
+
+event Encoded_PowerShell:
+    key:
+        Computer, ProcessGuid
+    filter {
+        EventID == "SysmonProcessCreate"
+        and lower(Image) endswith "\\powershell.exe"
+        # закодированная команда: -e / -en / -enc / -EncodedCommand
+        and regex(lower(CommandLine), "\\s-e(n|nc|ncodedcommand)?\\s", 0) != null
+        # и хотя бы один признак скрытности
+        and regex(lower(CommandLine), "\\s-(nop|noprofile|w\\s+(1|hidden)|windowstyle\\s+hidden|ep\\s+bypass|executionpolicy\\s+bypass)", 0) != null
+        # родитель - интерпретатор скриптов (bat, vbs, js, hta, Office)
+        and in_list(["cmd.exe", "wscript.exe", "cscript.exe", "mshta.exe", "winword.exe", "excel.exe"], lower(basename(ParentImage)))
+    }
+
+rule Encoded_PowerShell_From_Script: Encoded_PowerShell
+    on Encoded_PowerShell {
+        $host = Computer
+        $user = User
+        $process = Image
+        $cmdline = CommandLine
+        $parent_cmdline = ParentCommandLine
+        $alert.key = ParentCommandLine
+    }
+emit {
+    $correlation_type = "incident"
+    $importance = "high"
+    # MITRE: T1059.001, T1027.010, T1564.003
+}

@@ -1,0 +1,36 @@
+# PowerShell, запущенный с закодированной командой, сам устанавливает исходящее
+# соединение на нестандартный порт (загрузка агента / канал C2).
+# Источники: Sysmon 1 + Sysmon 3 одного процесса (ProcessGuid) в течение 1 минуты.
+# В атаке: powershell.exe (PID 4044) -> 10.158.3.4:9000.
+
+event PS_Start:
+    key:
+        Computer, ProcessGuid
+    filter {
+        EventID == "SysmonProcessCreate"
+        and lower(Image) endswith "\\powershell.exe"
+        and regex(lower(CommandLine), "\\s-e(n|nc|ncodedcommand)?\\s|downloadstring|iwr|invoke-webrequest|net\\.webclient", 0) != null
+    }
+
+event PS_Connect:
+    key:
+        Computer, ProcessGuid
+    filter {
+        EventID == "SysmonNetworkConnection"
+        and lower(Image) endswith "\\powershell.exe"
+        and Initiated == "true"
+        and not in_list(["80", "443", "3128", "8080"], DestinationPort)   # порты прокси/веба уточнить под инфраструктуру
+    }
+
+rule PowerShell_C2_Connection: PS_Start -> PS_Connect within 1m
+    on PS_Connect {
+        $host = Computer
+        $user = User
+        $dst = DestinationIp + ":" + DestinationPort
+        $alert.key = DestinationIp
+    }
+emit {
+    $correlation_type = "incident"
+    $importance = "high"
+    # MITRE: T1105, T1071.001, T1571
+}

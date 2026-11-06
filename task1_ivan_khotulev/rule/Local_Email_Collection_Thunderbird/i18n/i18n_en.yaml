@@ -1,0 +1,4 @@
+Description: 'Thunderbird local mail store read by a non-mail-client process'
+EventDescriptions:
+    - LocalizationId: 'corrname_Local_Email_Collection_Thunderbird'
+      EventDescription: 'User {subject.account.domain}\{subject.account.name} read mail store file "{object.fullpath}" with process {subject.process.fullpath} on host {event_src.host}'

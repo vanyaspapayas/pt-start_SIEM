@@ -1,0 +1,77 @@
+event Mail_Store_Read:
+    key:
+        event_src.host, subject.process.id
+    filter {
+        filter::NotFromCorrelator()
+        and event_src.title == "windows"
+        and msgid == "4663"
+        and object.type == "file"
+        and datafield5 == "0x1"     # AccessMask: ReadData
+        # object.fullpath нормализатор уже приводит к нижнему регистру
+        and regex(object.fullpath, "\\\\appdata\\\\roaming\\\\thunderbird\\\\profiles\\\\[^\\\\]+\\\\(mail|imapmail)\\\\", 0) != null
+        and subject.process.fullpath != null
+        # сам почтовый клиент и его служебные процессы (каталог доступен на запись только администраторам)
+        and regex(lower(subject.process.fullpath), "^c:\\\\program files( \\(x86\\))?\\\\mozilla thunderbird\\\\", 0) == null
+        # Windows Search
+        and not in_list([
+                "c:\\windows\\system32\\searchprotocolhost.exe",
+                "c:\\windows\\system32\\searchindexer.exe",
+                "c:\\windows\\system32\\searchfilterhost.exe"
+            ], lower(subject.process.fullpath))
+        # Microsoft Defender (платформа обновляется, версия в пути меняется)
+        and regex(lower(subject.process.fullpath), "^c:\\\\programdata\\\\microsoft\\\\windows defender\\\\platform\\\\[^\\\\]+\\\\(msmpeng|mpdefendercoreservice)\\.exe$", 0) == null
+    }
+
+rule Local_Email_Collection_Thunderbird: Mail_Store_Read
+
+    init {
+        $labels = "w_auto"
+    }
+
+    on Mail_Store_Read {
+        $event_src.ip = event_src.ip
+        $event_src.hostname = event_src.hostname
+        $event_src.fqdn = event_src.fqdn
+        $event_src.host = event_src.host
+        $event_src.asset = event_src.asset
+        $event_src.title = event_src.title
+        $event_src.subsys = event_src.subsys
+        $event_src.vendor = event_src.vendor
+        $event_src.category = event_src.category
+        $event_src.rule = event_src.rule
+
+        $object.name = object.name
+        $object.path = object.path
+        $object.fullpath = object.fullpath
+        $object.type = object.type
+        $object.property = object.property
+        $object.value = object.value
+
+        $subject.account.name = subject.account.name
+        $subject.account.domain = subject.account.domain
+        $subject.account.session_id = subject.account.session_id
+        $subject.account.id = subject.account.id
+        $subject.account.privileges = subject.account.privileges
+
+        $subject.process.id = subject.process.id
+        $subject.process.name = subject.process.name
+        $subject.process.path = subject.process.path
+        $subject.process.fullpath = subject.process.fullpath
+
+        $alert.key = subject.process.fullpath
+        $alert.context = subject.account.domain + "\\" + subject.account.name + " read mail store '" + object.fullpath + "' with " + subject.process.fullpath + " on " + event_src.hostname
+    }
+
+emit {
+    $subject = "account"
+    $action = "read"
+    $object = "file"
+    $status = "success"
+
+    $correlation_type = "incident"
+    $importance = "medium"
+
+    $category.generic = "Attack"
+    $category.high = "Collection"
+    $category.low = "Email Collection"
+}
